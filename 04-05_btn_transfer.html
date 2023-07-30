@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Detail Transfer Market History (Season 2004-2005)</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        h1 {
+            font-size: 24px;
+        }
+
+        label {
+            font-size: 18px;
+        }
+
+        .tick {
+            font-size: 12px; 
+        }
+        
+        .tooltip {
+            position: absolute;
+            padding: 5px;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            font-size: 12px;
+            pointer-events: none;
+        }
+        
+
+        .filter-button {
+            position: absolute;
+            top: 520px; 
+            left: 855px; 
+        }
+    
+        .reset-zoom {
+            position: absolute;
+            top: 490px;
+            left: 855px; 
+        }
+
+        .pie-legend {
+            font-size: 14px;
+        }
+
+        .pie-tooltip {
+            position: absolute;
+            padding: 5px;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            font-size: 12px;
+            pointer-events: none;
+        }
+
+        .legend-scroll-container {
+            transform: translate(560px, -430px); 
+        }
+
+        #my-paragraph {
+            font-family: "Arial", sans-serif; 
+            font-size: 16px; 
+            /* font-style: italic;  */
+            /* font-weight: bold; */
+            color: #333; 
+        }
+    </style>
+</head>
+<body>
+    <button id="back_to_main"> <- Back to Main Menu</button>
+    <h1>Detail Transfer Market History (Season 2004-2005)</h1>
+    <p id="my-paragraph">If the plots are not visible, please click the 'Reset Zoom' button. </br>
+    Scroll and zoom using the mouse wheel. Click 'Reset Zoom' to return to the original plot.</br>
+    You can apply a filter by clicking the colored rectangles on the legend next to the scatter plot. 
+    To reset the filter, please click 'Reset Filter'.</p>
+    <p id="my-paragraph">The scatter plot represents soccer player transfers during the season.
+        It visualizes the relationship between player age and transfer fees, with each data point 
+        representing a transfer. The circles are color-coded based on player positions, and hovering
+         over a circle reveals player details. Interactive features like zoom and filtering by position
+          provide a user-friendly way to explore the data. The plot offers insights into the distribution
+           of transfers based on age, fees, and positions, aiding in data analysis and decision-making
+            in the context of soccer transfers.</p>
+    <p id="position-percentage"></p>
+    
+    <button id="reset-button" class="reset-zoom">Reset Zoom</button>
+    <button class="filter-button">Reset Filter</button>
+
+    <div id="scatter-plot"></div>
+    <p id="my-paragraph">The pie chart represents the distribution of money spent by various soccer 
+        leagues during a specific season. Each segment corresponds to a league, and the segment's size 
+        reflects the amount of money spent by that league on player transfers. The chart allows 
+        for a quick comparison of spending among different leagues, highlighting their relative 
+        financial contributions to the soccer industry during the specified period.</p>
+    <div id="pie-chart"></div>
+
+    <script>
+        d3.csv('revised_ver.csv').then(function(data) {
+            
+            const seasonData = data.filter(row => row['Season'] === '04-05');
+
+            seasonData.forEach(function(row) {
+                row['Age'] = +row['Age'];
+                row['Transfer_fee'] = +row['Transfer_fee'];
+            });
+
+            const tooltip = d3.select('body').append('div')
+                .attr('class', 'tooltip')
+                .style('opacity', 0);
+
+            const svgWidth = 1100;
+            const svgHeight = 600;
+
+            const margin = { top: 50, right: 50, bottom: 50, left: 200 };
+            const axisLabelMargin = 50; 
+            const width = svgWidth - margin.left - margin.right;
+            const height = svgHeight - margin.top - margin.bottom;
+
+            const scatter_svg = d3.select('#scatter-plot')
+                .append('svg')
+                .attr('width', svgWidth)
+                .attr('height', svgHeight);
+
+            const positionColors = {
+                'Midfielder': 'blue',
+                'Forward': 'red',
+                'Defender': 'green',
+                'Goalkeeper': 'purple'
+            };
+
+            const xScale = d3.scaleLinear()
+                .domain([d3.min(seasonData, d => d['Age']) - 1, d3.max(seasonData, d => d['Age']) + 1])
+                .range([margin.left, width]);
+
+            const yScale = d3.scaleLinear()
+                .domain([d3.min(seasonData, d => d['Transfer_fee']) - 5, d3.max(seasonData, d => d['Transfer_fee']) + 5])
+                .range([height, margin.top]);
+
+            scatter_svg.selectAll('circle')
+                .data(seasonData)
+                .enter()
+                .append('circle')
+                .attr('cx', d => xScale(d['Transfer_fee']))
+                .attr('cy', d => yScale(d['Age']))
+                .attr('r', 5)
+                .attr('fill', d => positionColors[d['Position']])
+                .on('mouseover', function(event, d) {
+                    tooltip.transition()
+                        .duration(200)
+                        .style('opacity', 0.9);
+                    tooltip.html(
+                        `Name: ${d['Name']}<br>` +
+                        `Age: ${d['Age']}<br>` +
+                        `Transfer_fee: €${d['Transfer_fee'].toLocaleString()}<br>` +
+                        `Position: ${d['Position']}<br>` +
+                        `Team_from: ${d['Team_from']}<br>` +
+                        `League_from: ${d['League_from']}<br>` +
+                        `Team_to: ${d['Team_to']}<br>` +
+                        `League_to: ${d['League_to']}<br>`
+                    )
+                    .style('left', (event.pageX + 10) + 'px')
+                    .style('top', (event.pageY - 28) + 'px');
+                })
+                .on('mouseout', function() {
+                    tooltip.transition()
+                        .duration(500)
+                        .style('opacity', 0);
+                });
+            
+            const xAxis = d3.axisBottom(xScale);
+            scatter_svg.append('g')
+                .attr('class', 'x-axis')
+                .attr('transform', `translate(0, ${height})`)
+                .call(xAxis);
+
+            const yAxis = d3.axisLeft(yScale);
+            scatter_svg.append('g')
+                .attr('class', 'y-axis')
+                .attr('transform', `translate(${margin.left}, 0)`)
+                .call(yAxis);
+            
+            scatter_svg.append('text')
+                .attr('class', 'x-axis-label')
+                .attr('text-anchor', 'middle') 
+                .attr('x', svgWidth / 2)
+                .attr('y', svgHeight - margin.bottom + axisLabelMargin - 50) 
+                .text('Age')
+                .style('font-size', '20px')
+                .style('font-weight', 'bold');
+
+            scatter_svg.append('text')
+                .attr('class', 'y-axis-label')
+                .attr('text-anchor', 'middle')
+                .attr('x', -(svgHeight / 2))
+                .attr('y', margin.left / 2)
+                .attr('transform', 'rotate(-90)')
+                .text('transfer fee (€)')
+                .style('font-size', '20px')
+                .style('font-weight', 'bold');
+    
+            const zoom = d3.zoom()
+                .scaleExtent([1, 15])
+                .on('zoom', zoomed);
+
+            scatter_svg.call(zoom);
+
+            function zoomed(event) {
+                const { transform } = event;
+                const newXScale = transform.rescaleX(xScale);
+                const newYScale = transform.rescaleY(yScale);
+
+                scatter_svg.selectAll('circle')
+                    .attr('cx', d => {
+                        const x = newXScale(d['Age']);
+                        const isVisible = x >= margin.left && x <= svgWidth - margin.right - margin.left;
+                        return isVisible ? x : -100;
+                    })
+                    .attr('cy', d => {
+                        const y = newYScale(d['Transfer_fee']);
+                        const isVisible = y >= margin.top && y <= svgHeight - margin.top - margin.bottom;
+                        return isVisible ? y : -100;
+                    });
+                scatter_svg.select('.x-axis').call(xAxis.scale(newXScale));
+                scatter_svg.select('.y-axis').call(yAxis.scale(newYScale));
+            }
+            const resetButton = document.getElementById('reset-button');
+            const originalXDomain = [d3.min(seasonData, d => d['Age']) - 1, d3.max(seasonData, d => d['Age']) + 1];
+            const originalYDomain = [d3.min(seasonData, d => d['Transfer_fee']) - 5, d3.max(seasonData, d => d['Transfer_fee']) + 5];
+
+            resetButton.addEventListener('click', resetZoom);
+
+            function resetZoom() {
+                scatter_svg.transition()
+                    .duration(750)
+                    .call(zoom.transform, d3.zoomIdentity);
+                xScale.domain(originalXDomain);
+                yScale.domain(originalYDomain);
+                scatter_svg.selectAll('circle')
+                    .attr('cx', d => xScale(d['Age']))
+                    .attr('cy', d => yScale(d['Transfer_fee']));
+                
+                scatter_svg.select('.x-axis').call(xAxis);
+                scatter_svg.select('.y-axis').call(yAxis);
+            }
+
+
+            const legend = scatter_svg.append('g')
+                .attr('class', 'legend')
+                .attr('transform', `translate(${width}, ${height / 2})`);
+
+            const legendKeys = Object.keys(positionColors);
+            const legendHeight = 20;
+            const legendPadding = 5;
+            const legendItems = legend.selectAll('.legend-item')
+                .data(legendKeys)
+                .enter()
+                .append('g')
+                .attr('class', 'legend-item')
+                .attr('transform', (d, i) => `translate(0, ${i * (legendHeight + legendPadding)})`)
+                .style('cursor', 'pointer')
+                .on('click', function (event, d) {
+                    filterByPosition(d);
+                });
+
+            legendItems.append('rect')
+                .attr('width', legendHeight)
+                .attr('height', legendHeight)
+                .attr('fill', d => positionColors[d]);
+
+            legendItems.append('text')
+                .attr('x', legendHeight + 5)
+                .attr('y', legendHeight / 2)
+                .attr('dy', '0.35em')
+                .text(d => d)
+                .on('click', function (event, d) {
+                    filterByPosition(d);
+                });
+            function filterByPosition(position) {
+                scatter_svg.selectAll('circle')
+                    .style('display', d => (d['Position'] === position) ? 'block' : 'none');
+            }
+            
+            function resetFilter() {
+                scatter_svg.selectAll('circle')
+                    .style('display', 'block');
+            }
+            const resetFilterButton = document.querySelector('.filter-button');
+
+            resetFilterButton.addEventListener('click', function() {
+                resetFilter();
+            });
+
+        });
+        const moveButton = document.getElementById('back_to_main');
+        moveButton.addEventListener('click', function() {
+            window.location.href = 'index.html';
+        });
+    
+    </script>
+
+    <script>
+        d3.csv('revised_ver.csv').then(function (data) {
+
+            const seasonData = data.filter((row) => row['Season'] === '04-05');
+            seasonData.forEach(function (row) {
+                row['Age'] = +row['Age'];
+                row['Transfer_fee'] = +row['Transfer_fee'];
+            });
+            const positionCounts = {};
+            const totalPlayers = seasonData.length;
+
+            seasonData.forEach(function (row) {
+                const position = row['Position'];
+                if (positionCounts[position]) {
+                    positionCounts[position]++;
+                } else {
+                    positionCounts[position] = 1;
+                }
+            });
+
+            let summaryText = '<p style="font-family: Arial, sans-serif; font-size: 16px;">Percentage of each position in the scatter plot data:</p>'
+            for (const position in positionCounts) {
+                const percentage = ((positionCounts[position] / totalPlayers) * 100).toFixed(2);
+                summaryText += `${position}: <span style="font-weight: bold;">${percentage}%</span>\n`;
+            }
+            const positionPercentageElement = document.getElementById('position-percentage');
+            positionPercentageElement.innerHTML = summaryText;
+
+
+            function calculateMoneySpentByLeague() {
+                const moneySpentByLeague = {};
+
+                seasonData.forEach(function (row) {
+                    // Calculate money spent by each league
+                    if (!moneySpentByLeague[row['League_from']]) {
+                        moneySpentByLeague[row['League_from']] = 0;
+                    }
+                    if (!moneySpentByLeague[row['League_to']]) {
+                        moneySpentByLeague[row['League_to']] = 0;
+                    }
+
+                    moneySpentByLeague[row['League_from']] += row['Transfer_fee'];
+                    moneySpentByLeague[row['League_to']] += row['Transfer_fee'];
+                });
+
+                return moneySpentByLeague;
+            }
+
+            const moneySpentByLeague = calculateMoneySpentByLeague();
+
+            let moneySpentSummary = 'Money spent by each league:\n';
+            for (const league in moneySpentByLeague) {
+                const moneySpent = moneySpentByLeague[league].toFixed(2);
+                moneySpentSummary += `${league}: $${moneySpent}\n`;
+            }
+
+            const moneySpentByLeagueElement = document.getElementById('money-spent-by-league');
+            const pieChartData = Object.entries(moneySpentByLeague).map(([league, moneySpent]) => ({ league, moneySpent }));
+            pieChartData.sort((a, b) => b.moneySpent - a.moneySpent);
+            const pieChartContainer = document.getElementById('pie-chart');
+            const pieWidth = 600;
+            const pieHeight = 400;
+            const radius = Math.min(pieWidth, pieHeight) / 2;
+            const color = d3.scaleOrdinal(d3.schemeCategory10);
+
+            const pie = d3.pie()
+                .value(d => d.moneySpent)
+                .sort(null);
+
+            const arc = d3.arc()
+                .innerRadius(0)
+                .outerRadius(radius);
+
+            const svg = d3.select(pieChartContainer)
+                .append('svg')
+                .attr('width', pieWidth + 200) 
+                .attr('height', pieHeight + 100)
+                .append('g')
+                .attr('transform', `translate(${(pieWidth) / 2 }, ${pieHeight / 2})`);
+
+            const arcs = svg.selectAll('arc')
+                .data(pie(pieChartData))
+                .enter()
+                .append('g');
+
+            arcs.append('path')
+                .attr('d', arc)
+                .attr('fill', (d, i) => color(i))
+                .on('mouseover', function (event, d) {
+                    tooltip.transition()
+                        .duration(200)
+                        .style('opacity', 0.9);
+                    tooltip.html(`${d.data.league}: $${d.data.moneySpent.toLocaleString()}`)
+                        .style('left', (event.pageX + 10) + 'px')
+                        .style('top', (event.pageY - 28) + 'px');
+                })
+                .on('mouseout', function () {
+                    tooltip.transition()
+                        .duration(500)
+                        .style('opacity', 0);
+                });
+
+            const tooltip = d3.select('body').append('div')
+                .attr('class', 'pie-tooltip')
+                .style('opacity', 0);
+
+            const legendContainer = d3
+                .select(pieChartContainer)
+                .append('div')
+                .attr('class', 'legend-scroll-container') 
+                .style('height', pieHeight/2 + 'px')
+                .style('width', pieWidth/2 + 'px')
+                .style('overflow', 'auto'); 
+    
+            const legendSvg = legendContainer
+                .append('svg')
+                .attr('width', pieWidth/3) 
+                .attr('height', pieHeight * 2.4);
+
+            const legend = legendSvg
+                .selectAll('.legend')
+                .data(pieChartData)
+                .enter()
+                .append('g')
+                .attr('class', 'legend')
+                .attr('transform', (d, i) => `translate(${0}, ${i * 22.5})`);
+
+            legend.append('rect')
+                .attr('width', 18)
+                .attr('height', 18)
+                .style('fill', (d, i) => color(i));
+
+            legend.append('text')
+                .attr('x', 30)
+                .attr('y', 9)
+                .attr('dy', '.35em')
+                .style('font-weight', 'bold')
+                .text(d => d.league);
+        });    
+    </script>
+</body>
+</html>

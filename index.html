@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Rising Value of Soccer Players Over Time (2001-2018)</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        h1 {
+            font-size: 24px;
+        }
+
+        label {
+            font-size: 18px;
+        }
+
+        .tick {
+            font-size: 12px; /* Adjust the font size as needed */
+        }
+        
+        .tooltip {
+            position: absolute;
+            padding: 5px;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            font-size: 12px;
+            pointer-events: none;
+        }
+        #my-paragraph {
+            font-family: "Arial", sans-serif; 
+            font-size: 16px; 
+            /* font-style: italic;  */
+            /* font-weight: bold; */
+            color: #333; 
+        }
+    </style>
+</head>
+
+<body onload="init()">
+    <h1>Overall Transfer Market (2000 - 2018)</h1>
+    <!-- Add more buttons for other charts if needed -->
+    <p id="my-paragraph">Recently, the popularity of soccer has been increasing day by day, and with it, the interest in soccer players is also on the rise.
+        To discover and attract talented soccer players, clubs worldwide are making substantial investments in acquiring good coaches, 
+        state-of-the-art training facilities, robust youth training systems, and modern stadiums. This intense competition among soccer clubs
+        to sign skilled players has led to the scouting of high-priced talents and promising prospects, consequently contributing to 
+        the escalation of players' transfer fees.
+        In line with this burgeoning interest in soccer transfers,
+        the website covers data on the top 250 most expensive transfer deals in the soccer 
+        transfer market from the year 2000 to the summer of 2018.</p>
+    <div id="chart"></div>
+    
+    
+    <script>
+        var data = {};
+
+        async function init() {
+            data = await d3.csv("revised_ver.csv");
+            createChart1(); // Call the function to create the default chart
+
+    
+        }
+
+
+
+        function createChart1() {
+            // Step 1: Group the data by "Season" and calculate the mean value for each year
+            var dataByYear = d3.group(data, d => d.Season);
+            var meanValuesByYear = [];
+
+            dataByYear.forEach((yearData, season) => {
+                const meanValue = d3.mean(yearData, d => +d.Transfer_fee); // Convert the Market_value to a numeric value before calculating the mean
+                meanValuesByYear.push({ Season: season, MeanValue: meanValue });
+            });
+
+            // Step 2: Create the line graph
+            var margin = { top: 10, right: 30, bottom: 30, left: 100 },
+                width = window.innerWidth * 0.8 - margin.left - margin.right,
+                height = window.innerHeight * 0.6 - margin.top - margin.bottom;
+
+                var svg = d3.select("#chart")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+            var x = d3.scaleBand()
+                .domain(meanValuesByYear.map(d => d.Season))
+                .range([0, width])
+                .padding(0.1);
+
+            var y = d3.scaleLinear()
+                .domain([0, d3.max(meanValuesByYear, d => d.MeanValue)])
+                .nice() // Ensure the y-axis ticks are nice round numbers
+                .range([height, 0]);
+
+            var line = d3.line()
+                .x(d => x(d.Season) + x.bandwidth() / 2)
+                .y(d => y(d.MeanValue));
+
+            svg.append("g")
+                .attr("transform", "translate(0," + height + ")")
+                .call(d3.axisBottom(x));
+
+            svg.append("g")
+                .call(d3.axisLeft(y));
+
+            // Add x-axis label
+            svg.append("text")
+                .attr("class", "axis-label")
+                .attr("x", width / 2)
+                .attr("y", height + margin.bottom) // Adjust the vertical position here (offset from the bottom)
+                .style("text-anchor", "middle")
+                .text("Season")
+                .style('font-size', '20px')
+                .style('font-weight', 'bold');
+
+            // Add y-axis label
+            svg.append("text")
+                .attr("class", "axis-label")
+                .attr("x", -height / 2)
+                .attr("y", margin.left-175) // Adjust the vertical position here (offset from the left)
+                .attr("transform", "rotate(-90)")
+                .style("text-anchor", "middle")
+                .text("Mean Value")
+                .style('font-size', '20px')
+                .style('font-weight', 'bold');
+
+            svg.append("path")
+                .datum(meanValuesByYear)
+                .attr("fill", "none")
+                .attr("stroke", "steelblue")
+                .attr("stroke-width", 2)
+                .attr("d", line);
+
+            // Step 3: Create a tooltip
+            var tooltip = d3.select("#chart")
+                .append("div")
+                .attr("class", "tooltip")
+                .style("opacity", 0)
+                .style("position", "absolute")
+                .style("pointer-events", "none");
+
+            svg.append("path")
+                .datum(meanValuesByYear)
+                .attr("fill", "none")
+                .attr("stroke", "steelblue")
+                .attr("stroke-width", 2)
+                .attr("d", line)
+                .on("mouseover", function (event, d) {
+                    var xPos = d3.pointer(event)[0]; // Get the x position of the mouse relative to the SVG
+                    var xScale = d3.scaleBand()
+                        .domain(meanValuesByYear.map(d => d.Season))
+                        .range([0, width])
+                        .padding(0.1);
+                    var bisect = d3.bisector(d => xScale(d.Season)).right;
+                    var index = bisect(meanValuesByYear, xPos);
+                    if (index === meanValuesByYear.length) {
+                        index;
+                    }
+                    var d = meanValuesByYear[index - 1];
+
+                    tooltip.transition().duration(200).style("opacity", 0.9);
+                    tooltip.html(`Season: ${d.Season}<br/>Mean Value: ${d.MeanValue.toLocaleString()}`)
+
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 28) + "px");
+                })
+                .on("mouseout", function (d) {
+                    tooltip.transition().duration(500).style("opacity", 0.1);
+                });
+
+            // grid lines
+            svg.append("g")
+            .attr("class", "grid")
+            .attr("transform", "translate(0," + height + ")")
+            .call(d3.axisBottom(x)
+                .tickSize(-height)
+                .tickFormat("")
+            );
+
+            svg.append("g")
+                .attr("class", "grid")
+                .call(d3.axisLeft(y)
+                    .tickSize(-width)
+                    .tickFormat("")
+                );
+
+        }
+
+        // Add event listeners for other buttons if needed
+    </script>
+    <p>For more information, click any buttons below</p>
+    <button id="00-01_btn">Season 00-01</button>
+    <button id="01-02_btn">Season 01-02</button>
+    <button id="02-03_btn">Season 02-03</button>
+    <button id="03-04_btn">Season 03-04</button>
+    <button id="04-05_btn">Season 04-05</button>
+    <button id="05-06_btn">Season 05-06</button>
+    <button id="06-07_btn">Season 06-07</button>
+    <button id="07-08_btn">Season 07-08</button>
+    <button id="08-09_btn">Season 08-09</button>
+    <button id="09-10_btn">Season 09-10</button>
+    <button id="10-11_btn">Season 10-11</button>
+    <button id="11-12_btn">Season 11-12</button>
+    <button id="12-13_btn">Season 12-13</button>
+    <button id="13-14_btn">Season 13-14</button>
+    <button id="14-15_btn">Season 14-15</button>
+    <button id="15-16_btn">Season 15-16</button>
+    <button id="16-17_btn">Season 16-17</button>
+    <button id="17-18_btn">Season 17-18</button>
+    <button id="18-19_btn">Season 18-19</button>
+
+    <script>
+        // Function to handle button click
+        function handleButtonClick(event) {
+            var year = event.target.id;
+            // Navigate to the corresponding HTML file
+            console.log(year)
+            window.location.href = year + "_transfer.html";
+        }
+
+        // Add event listeners to each button
+        var buttons = document.querySelectorAll("button");
+        buttons.forEach(function(button) {
+            button.addEventListener("click", handleButtonClick);
+        });
+    </script>
+
+</body>
+</html>
